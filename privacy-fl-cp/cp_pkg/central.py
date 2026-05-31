@@ -72,8 +72,9 @@ def central(
         cp_results = []
         for task in cp_tasks:
             results = client.wait_for_results(task_id=task['id'])
-            result = results[0]['result']
-            # result == {'for_as1': float, 'for_as2': float}
+            # AlgorithmClient.wait_for_results returns decoded result values
+            # directly: results[0] == {'for_as1': float, 'for_as2': float}
+            result = results[0]
             cp_results.append(result)
             info(f'Central: Received shares from task {task["id"]}')
 
@@ -118,8 +119,8 @@ def central(
         as1_results = client.wait_for_results(task_id=as1_task['id'], timeout=600)
         as2_results = client.wait_for_results(task_id=as2_task['id'], timeout=600)
 
-        aggregate_from_as1 = as1_results[0]['result']['aggregate']
-        aggregate_from_as2 = as2_results[0]['result']['aggregate']
+        aggregate_from_as1 = as1_results[0]['aggregate']
+        aggregate_from_as2 = as2_results[0]['aggregate']
 
         # Both parties compute the same aggregate — sanity check
         if abs(aggregate_from_as1 - aggregate_from_as2) > 1e-6:
