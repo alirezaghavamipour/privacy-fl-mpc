@@ -20,14 +20,25 @@ if not TARGET.exists():
 
 original = TARGET.read_text()
 
-# ── Patch 1: add network_mode to __init__ signature ────────────────────────
-OLD_SIG = "        algorithm_env: dict,"
-NEW_SIG = "        algorithm_env: dict,\n        network_mode: str | None = None,"
-if OLD_SIG in original and "network_mode: str | None = None," not in original:
+# ── Patch 1: add network_mode at the END of run() signature ────────────────
+# It must come after the last non-default parameter (databases_to_use),
+# otherwise Python raises "non-default argument follows default argument".
+OLD_SIG = (
+    "        algorithm_env: dict,\n"
+    "        databases_to_use: list[dict],\n"
+    "    ) -> list[dict] | None:"
+)
+NEW_SIG = (
+    "        algorithm_env: dict,\n"
+    "        databases_to_use: list[dict],\n"
+    "        network_mode: str | None = None,\n"
+    "    ) -> list[dict] | None:"
+)
+if "network_mode: str | None = None," not in original and OLD_SIG in original:
     original = original.replace(OLD_SIG, NEW_SIG, 1)
-    print('✓ Patched __init__ signature')
+    print('✓ Patched run() signature')
 else:
-    print('• __init__ signature already patched or pattern missing')
+    print('• run() signature already patched or pattern missing')
 
 # ── Patch 2: store network_mode as instance variable ───────────────────────
 OLD_STORE = "        self.environment_variables = self._setup_environment_vars("
