@@ -3,9 +3,10 @@ from vantage6.algorithm.tools.decorators import algorithm_client
 from vantage6.algorithm.client import AlgorithmClient
 from vantage6.algorithm.tools.util import info
 
-# Docker image used for the SPDZ aggregation servers
-SPDZ_IMAGE = 'ghcr.io/alirezaghavamipour/privacy-fl-mpc/privacy-fl-spdz:main'
-CP_IMAGE   = 'ghcr.io/alirezaghavamipour/privacy-fl-mpc/privacy-fl-cp:main'
+# NOTE: vantage6 enforces the "same-image" constraint — a running algorithm
+# can only spawn child tasks using its OWN docker image. Therefore central,
+# cp_local_train and spdz_compute all live in this single image, and we do
+# NOT pass an `image` argument to client.task.create() (it is inherited).
 
 
 @algorithm_client
@@ -56,7 +57,6 @@ def central(
             task = client.task.create(
                 organizations=[org_id],
                 name=f'cp-train-iter{i + 1}-org{org_id}',
-                image=CP_IMAGE,
                 input_={
                     'method': 'cp_local_train',
                     'kwargs': {
@@ -90,7 +90,6 @@ def central(
         as1_task = client.task.create(
             organizations=[as_org_ids[0]],
             name=f'spdz-party0-iter{i + 1}',
-            image=SPDZ_IMAGE,
             input_={
                 'method': 'spdz_compute',
                 'kwargs': {'shares': as1_shares},
@@ -107,7 +106,6 @@ def central(
         as2_task = client.task.create(
             organizations=[as_org_ids[1]],
             name=f'spdz-party1-iter{i + 1}',
-            image=SPDZ_IMAGE,
             input_={
                 'method': 'spdz_compute',
                 'kwargs': {'shares': as2_shares},
