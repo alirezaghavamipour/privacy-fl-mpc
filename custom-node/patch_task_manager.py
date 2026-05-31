@@ -1,9 +1,10 @@
 """
-Patch vantage6 task_manager.py to accept and use network_mode parameter.
+Patch vantage6 task_manager.py to accept and use a network_mode parameter
+for the algorithm container.
 
-This is the second part of the patch: task_manager.py actually calls
-docker_client.containers.run() for algorithm containers.
-We add the network_mode argument to that call.
+The algorithm container is normally started with `network=<named network>`.
+When algorithm_network_mode is set (e.g. "host"), we instead start it with
+`network_mode=<mode>` and drop the named network (docker-py rejects both).
 """
 
 import pathlib
@@ -19,45 +20,44 @@ if not TARGET.exists():
 
 original = TARGET.read_text()
 
-# ── Patch: add network_mode to __init__ signature ────────────────────────────
-OLD_INIT_SIG = "        algorithm_env: dict,"
-NEW_INIT_SIG = "        algorithm_env: dict,\n        network_mode: str = None,"
-
-if OLD_INIT_SIG not in original:
-    print('WARNING: Could not patch __init__ signature — may already be patched or changed.')
-else:
-    original = original.replace(OLD_INIT_SIG, NEW_INIT_SIG, 1)
+# ── Patch 1: add network_mode to __init__ signature ────────────────────────
+OLD_SIG = "        algorithm_env: dict,"
+NEW_SIG = "        algorithm_env: dict,\n        network_mode: str | None = None,"
+if OLD_SIG in original and "network_mode: str | None = None," not in original:
+    original = original.replace(OLD_SIG, NEW_SIG, 1)
     print('✓ Patched __init__ signature')
+else:
+    print('• __init__ signature already patched or pattern missing')
 
-# ── Patch: store network_mode as instance variable ───────────────────────────
+# ── Patch 2: store network_mode as instance variable ───────────────────────
 OLD_STORE = "        self.environment_variables = self._setup_environment_vars("
 NEW_STORE = (
     "        self.network_mode = network_mode\n"
     "        self.environment_variables = self._setup_environment_vars("
 )
-
-if OLD_STORE not in original:
-    print('WARNING: Could not patch network_mode storage.')
-else:
+if "self.network_mode = network_mode" not in original and OLD_STORE in original:
     original = original.replace(OLD_STORE, NEW_STORE, 1)
     print('✓ Patched network_mode storage')
+else:
+    print('• network_mode storage already patched or pattern missing')
 
-# ── Patch: pass network_mode to docker run ───────────────────────────────────
-# Find the containers.run() call and add network_mode
-OLD_RUN = "            auto_remove=not keep,"
-NEW_RUN = "            auto_remove=not keep,\n            network_mode=self.network_mode,"
-
-if OLD_RUN not in original:
-    print('WARNING: Could not find auto_remove line in containers.run()')
-    print('Trying alternative...')
-    OLD_RUN = "            tty=True,"
-    NEW_RUN = "            tty=True,\n            network_mode=self.network_mode,"
-    if OLD_RUN not in original:
-        print('ERROR: Could not patch containers.run() call.')
-        sys.exit(0)
-
-original = original.replace(OLD_RUN, NEW_RUN, 1)
-print('✓ Patched containers.run() with network_mode')
+# ── Patch 3: wire network_mode into the algorithm containers.run() call ─────
+# Original line:    network=container_network,
+# Replacement: keep named network only when no explicit mode is requested,
+# and add network_mode (None by default → unchanged behaviour).
+OLD_NET = "                network=container_network,"
+NEW_NET = (
+    "                network=(None if self.network_mode else container_network),\n"
+    "                network_mode=self.network_mode,"
+)
+if "network_mode=self.network_mode," not in original and OLD_NET in original:
+    original = original.replace(OLD_NET, NEW_NET, 1)
+    print('✓ Patched algorithm containers.run() with network_mode')
+elif "network_mode=self.network_mode," in original:
+    print('• containers.run() already patched')
+else:
+    print('ERROR: could not find "network=container_network," to patch')
+    sys.exit(1)
 
 TARGET.write_text(original)
 print(f'✓ Written to {TARGET}')
