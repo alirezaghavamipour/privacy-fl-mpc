@@ -116,8 +116,8 @@ def central(
 
         # ── Step 4: Collect aggregate ────────────────────────────────────
         info('Central: Waiting for both SPDZ tasks to complete...')
-        as1_results = client.wait_for_results(task_id=as1_task['id'], timeout=600)
-        as2_results = client.wait_for_results(task_id=as2_task['id'], timeout=600)
+        as1_results = client.wait_for_results(task_id=as1_task['id'])
+        as2_results = client.wait_for_results(task_id=as2_task['id'])
 
         aggregate_from_as1 = as1_results[0]['aggregate']
         aggregate_from_as2 = as2_results[0]['aggregate']
